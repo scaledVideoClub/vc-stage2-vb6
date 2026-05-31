@@ -143,14 +143,14 @@ Key cardinality rules:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Available : copy added (system)
+    [*] --> Available : "copy added (system)"
 
-    Available --> Rented : rent copy (system)
-    Rented --> Available : return confirmed (system)
+    Available --> Rented : "rent copy (system)"
+    Rented --> Available : "return confirmed (system)"
 
-    Available --> Unavailable : mark unavailable (employee)
-    Rented --> Unavailable : mark unavailable — damage/loss (employee)
-    Unavailable --> Available : return found copy — EC-3/EC-7 (system)
+    Available --> Unavailable : "mark unavailable (employee)"
+    Rented --> Unavailable : "mark unavailable - damage or loss (employee)"
+    Unavailable --> Available : "return found copy - EC-3 or EC-7 (system)"
 ```
 
 Valid transitions:
@@ -173,8 +173,8 @@ Notes:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Active : rental registered
-    Active --> Returned : return confirmed (employee)
+    [*] --> Active : "rental registered"
+    Active --> Returned : "return confirmed (employee)"
 ```
 
 - Once `Returned`, a rental is closed and cannot be reopened.
@@ -201,9 +201,9 @@ stateDiagram-v2
 
 | Value            | Formula                                                                        |
 |------------------|--------------------------------------------------------------------------------|
-| days_rented      | `max(1, return_date − rental_date)` in calendar days (BR-1)                    |
-| rental_charge    | If `days_rented ≤ max_rental_days`: `days_rented × daily_rate`                 |
-|                  | Else: `max_rental_days × daily_rate + (days_rented − max_rental_days) × late_daily_rate` |
+| days_rented      | `max(1, return_date - rental_date)` in calendar days (BR-1)                    |
+| rental_charge    | If `days_rented <= max_rental_days`: `days_rented x daily_rate`                |
+|                  | Else: `max_rental_days x daily_rate + (days_rented - max_rental_days) x late_daily_rate` |
 | is_overdue       | `TODAY() > expected_return AND rental.status = Active`                         |
 | available_copies | Count of Copies for a Movie where `copy.status = Available`                    |
 
@@ -244,8 +244,8 @@ erDiagram
         string status
     }
 
-    MOVIE ||--o{ COPY : has
-    CUSTOMER ||--o{ RENTAL : makes
+    MOVIE ||--o{ COPY : "has"
+    CUSTOMER ||--o{ RENTAL : "makes"
     COPY ||--o{ RENTAL : "is subject of"
 ```
 
@@ -273,5 +273,5 @@ erDiagram
 
 ---
 
-*Domain model version: 1.2 — Stage 2 VB6*
+*Domain model version: 1.3 — Stage 2 VB6*
 *Status: Draft — pending tech.md*
