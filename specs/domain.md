@@ -36,14 +36,14 @@ Represents a specific physical VHS cassette of a movie.
 
 | Attribute | Type         | Notes                                                        |
 |-----------|--------------|--------------------------------------------------------------|
-| copy_id   | Integer      | System-assigned. Formula: `movie_id × 100 + sequence`.      |
-|           |              | Movie 1 copy 1 → 101. Movie 10 copy 3 → 1003.               |
+| copy_id   | Integer      | System-assigned. Formula: `movie_id x 100 + sequence`.      |
+|           |              | Movie 1 copy 1 = 101. Movie 10 copy 3 = 1003.               |
 | movie_id  | Integer (FK) | References Movie                                             |
-| status    | Enum         | Available \| Rented \| Unavailable                           |
+| status    | Enum         | Available, Rented, Unavailable                               |
 | comment   | String(30)   | Optional. Single-line. E.g. "damaged", "lost".               |
 
 Copy code rules (BR-5):
-- `copy_id = movie_id × 100 + sequence_number`
+- `copy_id = movie_id x 100 + sequence_number`
 - Sequence starts at 1 per movie and increments with each new copy added.
 - No zero-padding needed — the arithmetic produces the correct format naturally.
 - Sequence numbers are never reused within the same movie.
@@ -51,9 +51,9 @@ Copy code rules (BR-5):
 
 Rules:
 - Copies cannot be deleted.
-- The `Rented` status is set by the system only, not by the employee directly.
-- A copy may be marked `Unavailable` even while in `Rented` status (damage/loss — EC-6).
-- `Unavailable` is not permanent. A recovered copy may return to `Available` (EC-3/EC-7).
+- The Rented status is set by the system only, not by the employee directly.
+- A copy may be marked Unavailable even while in Rented status (damage/loss — EC-6).
+- Unavailable is not permanent. A recovered copy may return to Available (EC-3/EC-7).
 
 ---
 
@@ -86,7 +86,7 @@ Records a single rental transaction: one copy, one customer, one time period.
 | rental_date     | Date         | Date the rental was registered                         |
 | expected_return | Date         | Computed at creation: rental_date + max_rental_days    |
 | return_date     | Date         | Actual return date. Null while the rental is active.   |
-| status          | Enum         | Active \| Returned                                     |
+| status          | Enum         | Active, Returned                                       |
 
 Rules:
 - Only one Active Rental may exist per Copy at any time.
@@ -123,16 +123,16 @@ list=Action,Comedy,Drama,Horror,Sci-Fi,Documentary,Animation
 ## 2. Relationships
 
 ```
-Movie    ──< Copy      one movie → many copies
-Customer ──< Rental    one customer → many rentals
-Copy     ──< Rental    one copy → many rentals (at most one Active at a time)
+Movie    --< Copy      one movie, many copies
+Customer --< Rental    one customer, many rentals
+Copy     --< Rental    one copy, many rentals (at most one Active at a time)
 ```
 
 Key cardinality rules:
 - A Movie may have zero or more Copies.
 - A Copy belongs to exactly one Movie.
 - A Rental references exactly one Copy and one Customer.
-- A Copy may have many historical Rentals, but at most one with status = Active.
+- A Copy may have many historical Rentals, but at most one with status Active.
 - Genre has no entity in the database. It is a string value on Movie, constrained by config.ini.
 
 ---
@@ -143,41 +143,46 @@ Key cardinality rules:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Available : "copy added (system)"
+    state "Available" as Av
+    state "Rented" as Re
+    state "Unavailable" as Un
 
-    Available --> Rented : "rent copy (system)"
-    Rented --> Available : "return confirmed (system)"
-
-    Available --> Unavailable : "mark unavailable (employee)"
-    Rented --> Unavailable : "mark unavailable - damage or loss (employee)"
-    Unavailable --> Available : "return found copy - EC-3 or EC-7 (system)"
+    [*] --> Av
+    Av --> Re : rent copy
+    Re --> Av : return confirmed
+    Av --> Un : mark unavailable
+    Re --> Un : damage or loss
+    Un --> Av : return found copy
 ```
 
 Valid transitions:
 
-| From        | To          | Trigger                                                                        | Actor    |
-|-------------|-------------|--------------------------------------------------------------------------------|----------|
-| Available   | Rented      | Rental registered                                                              | System   |
-| Rented      | Available   | Return confirmed                                                               | System   |
-| Available   | Unavailable | Employee marks copy unavailable                                                | Employee |
-| Rented      | Unavailable | Employee marks unavailable — damage/loss; warning shown, active rental closed  | Employee |
-| Unavailable | Available   | Return of found/recovered copy (EC-3 / EC-7)                                  | System   |
+| From        | To          | Trigger                                                                       | Actor    |
+|-------------|-------------|-------------------------------------------------------------------------------|----------|
+| Available   | Rented      | Rental registered                                                             | System   |
+| Rented      | Available   | Return confirmed                                                              | System   |
+| Available   | Unavailable | Employee marks copy unavailable                                               | Employee |
+| Rented      | Unavailable | Employee marks unavailable — damage/loss; warning shown, active rental closed | Employee |
+| Unavailable | Available   | Return of found/recovered copy (EC-3 / EC-7)                                 | System   |
 
 Notes:
-- `Unavailable` is not a terminal state. A lost or damaged copy may return to `Available`.
-- There is no `Deleted` state. Copies are never removed from the catalog.
-- `Rented → Unavailable` closes the active rental and displays a warning that an additional
-  fee must be charged to the customer outside the system.
+- Unavailable is not a terminal state. A lost or damaged copy may return to Available.
+- There is no Deleted state. Copies are never removed from the catalog.
+- The Rented to Unavailable transition closes the active rental and displays a warning
+  that an additional fee must be charged to the customer outside the system.
 
 ### Rental status
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Active : "rental registered"
-    Active --> Returned : "return confirmed (employee)"
+    state "Active" as Ac
+    state "Returned" as Rt
+
+    [*] --> Ac
+    Ac --> Rt : return confirmed
 ```
 
-- Once `Returned`, a rental is closed and cannot be reopened.
+- Once Returned, a rental is closed and cannot be reopened.
 
 ---
 
@@ -185,27 +190,27 @@ stateDiagram-v2
 
 | ID    | Invariant                                                                         |
 |-------|-----------------------------------------------------------------------------------|
-| INV-1 | A Copy with status `Rented` must have exactly one Active Rental.                  |
-| INV-2 | A Copy with status `Available` or `Unavailable` must have no Active Rental.       |
-| INV-3 | A Rental may not be created for a Copy with status `Rented` or `Unavailable`.     |
+| INV-1 | A Copy with status Rented must have exactly one Active Rental.                    |
+| INV-2 | A Copy with status Available or Unavailable must have no Active Rental.           |
+| INV-3 | A Rental may not be created for a Copy with status Rented or Unavailable.         |
 | INV-4 | A Copy must reference a valid, existing Movie.                                    |
-| INV-5 | `expected_return` must equal `rental_date + max_rental_days`.                    |
-| INV-6 | `return_date` is null for Active rentals and non-null for Returned rentals.       |
+| INV-5 | expected_return must equal rental_date + max_rental_days.                         |
+| INV-6 | return_date is null for Active rentals and non-null for Returned rentals.         |
 | INV-7 | Copy codes are unique across the entire system.                                   |
 | INV-8 | Copy sequence numbers within a Movie are never reused.                            |
-| INV-9 | A movie's `genre` value must match one of the entries in config.ini `[Genres]`.  |
+| INV-9 | A movie genre value must match one of the entries in config.ini [Genres].         |
 
 ---
 
 ## 5. Computed Values (not stored)
 
-| Value            | Formula                                                                        |
-|------------------|--------------------------------------------------------------------------------|
-| days_rented      | `max(1, return_date - rental_date)` in calendar days (BR-1)                    |
-| rental_charge    | If `days_rented <= max_rental_days`: `days_rented x daily_rate`                |
-|                  | Else: `max_rental_days x daily_rate + (days_rented - max_rental_days) x late_daily_rate` |
-| is_overdue       | `TODAY() > expected_return AND rental.status = Active`                         |
-| available_copies | Count of Copies for a Movie where `copy.status = Available`                    |
+| Value            | Formula                                                                              |
+|------------------|--------------------------------------------------------------------------------------|
+| days_rented      | max(1, return_date - rental_date) in calendar days (BR-1)                            |
+| rental_charge    | If days_rented <= max_rental_days: days_rented x daily_rate                          |
+|                  | Else: max_rental_days x daily_rate + (days_rented - max_rental_days) x late_daily_rate |
+| is_overdue       | TODAY() > expected_return AND rental.status = Active                                 |
+| available_copies | Count of Copies for a Movie where copy.status = Available                            |
 
 ---
 
@@ -244,9 +249,9 @@ erDiagram
         string status
     }
 
-    MOVIE ||--o{ COPY : "has"
-    CUSTOMER ||--o{ RENTAL : "makes"
-    COPY ||--o{ RENTAL : "is subject of"
+    MOVIE ||--o{ COPY : has
+    CUSTOMER ||--o{ RENTAL : makes
+    COPY ||--o{ RENTAL : used-in
 ```
 
 ---
@@ -267,11 +272,11 @@ erDiagram
 | Concept          | Notes                                                               |
 |------------------|---------------------------------------------------------------------|
 | Stock constraint | Physical copies limit access. No rental without an Available copy.  |
-| Rental lifecycle | Registered → Active → Returned                                      |
+| Rental lifecycle | Registered, Active, Returned                                        |
 | Pricing          | Flat daily rate; late fee applies beyond the allowed period         |
 | Customer         | Extended in this stage with phone and address fields                |
 
 ---
 
-*Domain model version: 1.3 — Stage 2 VB6*
+*Domain model version: 1.4 — Stage 2 VB6*
 *Status: Draft — pending tech.md*
