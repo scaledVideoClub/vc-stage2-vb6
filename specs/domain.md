@@ -142,17 +142,18 @@ Key cardinality rules:
 ### Copy status
 
 ```mermaid
-stateDiagram-v2
-    state "Available" as Av
-    state "Rented" as Re
-    state "Unavailable" as Un
+flowchart TD
+    START(( )) --> Av
 
-    [*] --> Av
-    Av --> Re : rent copy
-    Re --> Av : return confirmed
-    Av --> Un : mark unavailable
-    Re --> Un : damage or loss
-    Un --> Av : return found copy
+    Av[Available]
+    Re[Rented]
+    Un[Unavailable]
+
+    Av -->|rent copy| Re
+    Re -->|return confirmed| Av
+    Av -->|mark unavailable| Un
+    Re -->|damage or loss| Un
+    Un -->|return found copy| Av
 ```
 
 Valid transitions:
@@ -162,8 +163,8 @@ Valid transitions:
 | Available   | Rented      | Rental registered                                                             | System   |
 | Rented      | Available   | Return confirmed                                                              | System   |
 | Available   | Unavailable | Employee marks copy unavailable                                               | Employee |
-| Rented      | Unavailable | Employee marks unavailable — damage/loss; warning shown, active rental closed | Employee |
-| Unavailable | Available   | Return of found/recovered copy (EC-3 / EC-7)                                 | System   |
+| Rented      | Unavailable | Employee marks unavailable - damage or loss; warning shown, active rental closed | Employee |
+| Unavailable | Available   | Return of found or recovered copy (EC-3 / EC-7)                              | System   |
 
 Notes:
 - Unavailable is not a terminal state. A lost or damaged copy may return to Available.
@@ -174,12 +175,9 @@ Notes:
 ### Rental status
 
 ```mermaid
-stateDiagram-v2
-    state "Active" as Ac
-    state "Returned" as Rt
-
-    [*] --> Ac
-    Ac --> Rt : return confirmed
+flowchart LR
+    START(( )) --> Ac
+    Ac[Active] -->|return confirmed| Rt[Returned]
 ```
 
 - Once Returned, a rental is closed and cannot be reopened.
@@ -278,5 +276,5 @@ erDiagram
 
 ---
 
-*Domain model version: 1.4 — Stage 2 VB6*
+*Domain model version: 1.5 — Stage 2 VB6*
 *Status: Draft — pending tech.md*
