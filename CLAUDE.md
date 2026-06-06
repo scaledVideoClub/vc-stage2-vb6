@@ -161,7 +161,7 @@ the database state, and no concept from a later stage has crept in.
   frmCustomer.frm
   modApp.bas
   /sql/
-    setup.sql
+    db_setup.sql
 /docs/
   setup.md
   run.md
@@ -262,5 +262,5 @@ using specs as the ground truth for review, not intuition or modern convention.
 
 ---
 
-*CLAUDE.md version: 1.1*
+*CLAUDE.md version: 1.2*
 *Stage 2 — Visual Basic 6*

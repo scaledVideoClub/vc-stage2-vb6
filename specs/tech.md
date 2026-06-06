@@ -124,10 +124,7 @@ BEGIN
         customer_id     INT NOT NULL REFERENCES Customers(customer_id),
         rental_date     DATETIME NOT NULL,
         expected_return DATETIME NOT NULL,
-        return_date     DATETIME NULL,
-        status          VARCHAR(10) NOT NULL
-                        CONSTRAINT chk_rental_status
-                        CHECK (status IN ('Active', 'Returned'))
+        return_date     DATETIME NULL
     )
 END
 GO
@@ -278,11 +275,11 @@ README.md
    `Customers` by `name LIKE '%[input]%'` or exact `customer_id`. Results
    shown in a list. Employee selects one.
 6. On selection, run warning checks:
-   - Overdue: `SELECT COUNT(*) FROM Rentals WHERE customer_id = [id] AND status = 'Active' AND expected_return < GETDATE()` — if > 0, warn.
-   - Limit: `SELECT COUNT(*) FROM Rentals WHERE customer_id = [id] AND status = 'Active'` — if >= `gMaxActiveRentals`, warn.
+   - Overdue: `SELECT COUNT(*) FROM Rentals WHERE customer_id = [id] AND return_date IS NULL AND expected_return < GETDATE()` — if > 0, warn.
+   - Limit: `SELECT COUNT(*) FROM Rentals WHERE customer_id = [id] AND return_date IS NULL` — if >= `gMaxActiveRentals`, warn.
    Both warnings are non-blocking. Employee may cancel or proceed.
 7. Employee clicks "Confirm Rental":
-   - `gConn.Execute "INSERT INTO Rentals (copy_id, customer_id, rental_date, expected_return, return_date, status) VALUES ([copy_id], [cust_id], GETDATE(), DATEADD(d, [gMaxRentalDays], GETDATE()), NULL, 'Active')"`
+   - `gConn.Execute "INSERT INTO Rentals (copy_id, customer_id, rental_date, expected_return, return_date) VALUES ([copy_id], [cust_id], GETDATE(), DATEADD(d, [gMaxRentalDays], GETDATE()), NULL)"` 
    - `gConn.Execute "UPDATE Copies SET status = 'Rented' WHERE copy_id = [copy_id]"`
 8. Confirmation message. Close `frmRent`. Refresh movie list on `frmMain`.
 
@@ -318,7 +315,7 @@ GROUP BY m.movie_id, m.title, m.genre
 
 1. Read copy code.
 2. Open Recordset:
-   `SELECT r.rental_id, r.customer_id, r.rental_date, r.expected_return, c.movie_id FROM Rentals r JOIN Copies c ON c.copy_id = r.copy_id WHERE r.copy_id = [code] AND r.status = 'Active'`
+   `SELECT r.rental_id, r.customer_id, r.rental_date, r.expected_return, c.movie_id FROM Rentals r JOIN Copies c ON c.copy_id = r.copy_id WHERE r.copy_id = [code] AND r.return_date IS NULL`
    - No active rental found:
      - Check `Copies WHERE copy_id = [code]`.
      - If exists and `status = 'Unavailable'`: `UPDATE Copies SET status = 'Available'`. Message: "Copy marked as Available." Stop.
@@ -328,7 +325,7 @@ GROUP BY m.movie_id, m.title, m.genre
    - `days_rented = max(1, TODAY - rental_date)` (calendar days via `DateDiff("d", ...)`)
    - Fee breakdown (see Section 9).
 4. Employee clicks "Confirm Return":
-   - `gConn.Execute "UPDATE Rentals SET status = 'Returned', return_date = GETDATE() WHERE rental_id = [id]"`
+   - `gConn.Execute "UPDATE Rentals SET return_date = GETDATE() WHERE rental_id = [id]"`
    - `gConn.Execute "UPDATE Copies SET status = 'Available' WHERE copy_id = [code]"`
 5. Confirmation. Refresh main list.
 
@@ -368,7 +365,7 @@ Bound to a grid. Columns: Copy Code, Status, Comment.
 **Mark Copy as Unavailable:**
 1. Employee selects a row. Clicks "Mark Unavailable".
 2. If `status = 'Rented'`: warn "This copy has an active rental. The rental will be closed. A damage/loss fee must be charged to the customer outside the system. Proceed?" Employee may cancel.
-   If confirmed: `gConn.Execute "UPDATE Rentals SET status = 'Returned', return_date = GETDATE() WHERE copy_id = [id] AND status = 'Active'"`
+   If confirmed: `gConn.Execute "UPDATE Rentals SET return_date = GETDATE() WHERE copy_id = [id] AND return_date IS NULL"`
 3. Prompt for optional comment.
 4. `gConn.Execute "UPDATE Copies SET status = 'Unavailable', comment = '[comment]' WHERE copy_id = [id]"`
 5. Grid refreshes.
@@ -391,13 +388,13 @@ SELECT m.title, c.copy_id, r.rental_date, r.expected_return
 FROM Rentals r
 JOIN Copies c ON c.copy_id = r.copy_id
 JOIN Movies m ON m.movie_id = c.movie_id
-WHERE r.customer_id = [id] AND r.status = 'Active'
+WHERE r.customer_id = [id] AND r.return_date IS NULL
 ```
 
 Toggle to Full History:
 
 ```sql
-SELECT m.title, c.copy_id, r.rental_date, r.expected_return, r.return_date, r.status
+SELECT m.title, c.copy_id, r.rental_date, r.expected_return, r.return_date
 FROM Rentals r
 JOIN Copies c ON c.copy_id = r.copy_id
 JOIN Movies m ON m.movie_id = c.movie_id

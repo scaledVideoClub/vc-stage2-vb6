@@ -85,12 +85,12 @@ Records a single rental transaction: one copy, one customer, one time period.
 | customer_id     | Integer (FK) | References Customer                                    |
 | rental_date     | Date         | Date the rental was registered                         |
 | expected_return | Date         | Computed at creation: rental_date + max_rental_days    |
-| return_date     | Date         | Actual return date. Null while the rental is active.   |
-| status          | Enum         | Active, Returned                                       |
+| return_date     | Date         | Actual return date. Null while the rental is active; non-null once returned. |
 
 Rules:
 - Only one Active Rental may exist per Copy at any time.
-- `return_date` is null while the rental is active; non-null once returned.
+- A rental is considered **Active** when `return_date IS NULL`; **Returned** when `return_date IS NOT NULL`.
+- There is no `status` column on Rental. Active/Returned is always derived from `return_date`.
 - Charges are computed at return time from config values. No payment is recorded.
 
 ---
@@ -193,7 +193,7 @@ flowchart LR
 | INV-3 | A Rental may not be created for a Copy with status Rented or Unavailable.         |
 | INV-4 | A Copy must reference a valid, existing Movie.                                    |
 | INV-5 | expected_return must equal rental_date + max_rental_days.                         |
-| INV-6 | return_date is null for Active rentals and non-null for Returned rentals.         |
+| INV-6 | Rental state is derived from `return_date`: NULL = Active, NOT NULL = Returned. No status column exists on Rental. |
 | INV-7 | Copy codes are unique across the entire system.                                   |
 | INV-8 | Copy sequence numbers within a Movie are never reused.                            |
 | INV-9 | A movie genre value must match one of the entries in config.ini [Genres].         |
@@ -207,7 +207,7 @@ flowchart LR
 | days_rented      | max(1, return_date - rental_date) in calendar days (BR-1)                            |
 | rental_charge    | If days_rented <= max_rental_days: days_rented x daily_rate                          |
 |                  | Else: max_rental_days x daily_rate + (days_rented - max_rental_days) x late_daily_rate |
-| is_overdue       | TODAY() > expected_return AND rental.status = Active                                 |
+| is_overdue       | TODAY() > expected_return AND return_date IS NULL                                    |
 | available_copies | Count of Copies for a Movie where copy.status = Available                            |
 
 ---
@@ -244,7 +244,6 @@ erDiagram
         date rental_date
         date expected_return
         date return_date
-        string status
     }
 
     MOVIE ||--o{ COPY : has
